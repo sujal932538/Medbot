@@ -8,7 +8,7 @@ export const createAppointment = mutation({
     patientName: v.string(),
     patientEmail: v.string(),
     patientPhone: v.optional(v.string()),
-    doctorId: v.optional(v.string()),
+    doctorId: v.optional(v.id("doctors")),
     doctorName: v.optional(v.string()),
     doctorEmail: v.optional(v.string()),
     appointmentDate: v.string(),
@@ -29,11 +29,11 @@ export const createAppointment = mutation({
   },
 });
 
-// Get all appointments with optional filtering
-export const getAllAppointments = query({
+// Get appointments with optional filtering
+export const getAppointments = query({
   args: {
     patientId: v.optional(v.string()),
-    doctorId: v.optional(v.string()),
+    doctorId: v.optional(v.id("doctors")),
     status: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
@@ -75,6 +75,27 @@ export const getAppointmentById = query({
   },
 });
 
+// Update appointment status and details
+export const updateAppointment = mutation({
+  args: {
+    id: v.id("appointments"),
+    status: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected"),
+      v.literal("completed"),
+      v.literal("cancelled")
+    )),
+    doctorNotes: v.optional(v.string()),
+    meetingLink: v.optional(v.string()),
+    vonageSessionId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+    return await ctx.db.patch(id, updates);
+  },
+});
+
 // Get appointments for a specific patient
 export const getPatientAppointments = query({
   args: { patientId: v.string() },
@@ -88,7 +109,7 @@ export const getPatientAppointments = query({
 
 // Get appointments for a specific doctor
 export const getDoctorAppointments = query({
-  args: { doctorId: v.string() },
+  args: { doctorId: v.id("doctors") },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("appointments")
@@ -105,45 +126,6 @@ export const getAppointmentsByStatus = query({
       .query("appointments")
       .withIndex("by_status", (q) => q.eq("status", args.status))
       .collect();
-  },
-});
-
-// Update appointment status
-export const updateAppointmentStatus = mutation({
-  args: {
-    id: v.id("appointments"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("approved"),
-      v.literal("rejected"),
-      v.literal("completed"),
-      v.literal("cancelled")
-    ),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.patch(args.id, { status: args.status });
-  },
-});
-
-// Update appointment details
-export const updateAppointment = mutation({
-  args: {
-    id: v.id("appointments"),
-    patientName: v.optional(v.string()),
-    patientEmail: v.optional(v.string()),
-    patientPhone: v.optional(v.string()),
-    appointmentDate: v.optional(v.string()),
-    appointmentTime: v.optional(v.string()),
-    reason: v.optional(v.string()),
-    symptoms: v.optional(v.string()),
-    consultationFee: v.optional(v.number()),
-    meetingLink: v.optional(v.string()),
-    doctorNotes: v.optional(v.string()),
-    vonageSessionId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const { id, ...updates } = args;
-    return await ctx.db.patch(id, updates);
   },
 });
 
@@ -184,7 +166,7 @@ export const getAppointmentStats = query({
 export const getUpcomingAppointments = query({
   args: {
     patientId: v.optional(v.string()),
-    doctorId: v.optional(v.string()),
+    doctorId: v.optional(v.id("doctors")),
     days: v.optional(v.number()),
   },
   handler: async (ctx, args) => {

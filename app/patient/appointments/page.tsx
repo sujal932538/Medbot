@@ -24,45 +24,15 @@ import { useUser } from "@clerk/nextjs"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
 
-interface Appointment {
-  id: string
-  patientName: string
-  patientEmail: string
-  appointmentDate: string
-  appointmentTime: string
-  reason: string
-  symptoms: string
-  status: "pending" | "approved" | "rejected" | "completed"
-  createdAt: string
-}
-
-interface Doctor {
-  id: string
-  name: string
-  specialty: string
-  email: string
-  phone: string
-  experience: string
-  education: string
-  about: string
-  languages: string[]
-  availability: string[]
-  consultationFee: number
-  rating: number
-  totalReviews: number
-  image: string
-  status: string
-  license_number?: string
-}
 export default function AppointmentsPage() {
   const { user } = useUser()
-  const appointments = useQuery(api.appointments.getAppointments, 
+  const appointments = useQuery(api.appointments.getPatientAppointments, 
     user ? { patientId: user.id } : "skip"
   ) || []
   const doctors = useQuery(api.doctors.getAllDoctors, {}) || []
-  const createAppointment = useMutation(api.appointments.createAppointment)
+  const createAppointmentMutation = useMutation(api.appointments.createAppointment)
 
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null)
+  const [selectedDoctor, setSelectedDoctor] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSpecialty, setSelectedSpecialty] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
@@ -106,12 +76,35 @@ export default function AppointmentsPage() {
 
       console.log("Booking appointment with data:", appointmentData)
 
-      const appointmentId = await createAppointment(appointmentData)
+      const appointmentId = await createAppointmentMutation(appointmentData)
       
       if (appointmentId) {
+        // Send email notification to doctor
+        try {
+          const emailResponse = await fetch("/api/notifications/email", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              type: "appointmentRequest",
+              appointment: {
+                ...appointmentData,
+                id: appointmentId,
+              },
+            }),
+          })
+
+          if (emailResponse.ok) {
+            console.log("Email notification sent to doctor successfully")
+          }
+        } catch (emailError) {
+          console.error("Error sending email notification:", emailError)
+        }
+
         toast({
           title: "Appointment Booked! 🎉",
-          description: `Your appointment with ${selectedDoctor.name} has been booked successfully!`,
+          description: `Your appointment with ${selectedDoctor.name} has been booked successfully! Doctor notified via email.`,
         })
 
         setIsAppointmentFormOpen(false)
@@ -131,7 +124,7 @@ export default function AppointmentsPage() {
     }
   }
 
-  const handleDoctorSelect = (doctor: Doctor) => {
+  const handleDoctorSelect = (doctor: any) => {
     setSelectedDoctor(doctor)
     setIsDoctorListOpen(false)
     setIsAppointmentFormOpen(true)
@@ -241,7 +234,7 @@ export default function AppointmentsPage() {
               {/* Doctors Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
                 {filteredDoctors.map((doctor) => (
-                  <Card key={doctor.id} className="cursor-pointer hover:shadow-lg transition-shadow">
+                  <Card key={doctor._id} className="cursor-pointer hover:shadow-lg transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex items-start space-x-4">
                         <Avatar className="w-16 h-16">
@@ -255,8 +248,8 @@ export default function AppointmentsPage() {
                             {doctor.name}
                           </h3>
                           <p className="text-blue-600 font-medium">{doctor.specialty}</p>
-                          {doctor.license_number && (
-                            <p className="text-xs text-gray-500">License: {doctor.license_number}</p>
+                          {doctor.licenseNumber && (
+                            <p className="text-xs text-gray-500">License: {doctor.licenseNumber}</p>
                           )}
                           <div className="flex items-center space-x-2 mt-1">
                             <div className="flex items-center">
@@ -353,8 +346,8 @@ export default function AppointmentsPage() {
                         <div>
                           <h3 className="font-semibold text-base">{selectedDoctor.name}</h3>
                           <p className="text-blue-600 text-sm">{selectedDoctor.specialty}</p>
-                          {selectedDoctor.license_number && (
-                            <p className="text-xs text-gray-500">License: {selectedDoctor.license_number}</p>
+                          {selectedDoctor.licenseNumber && (
+                            <p className="text-xs text-gray-500">License: {selectedDoctor.licenseNumber}</p>
                           )}
                           <div className="flex items-center space-x-3 text-xs text-gray-600">
                             <span>Fee: ${selectedDoctor.consultationFee}</span>
@@ -493,6 +486,15 @@ export default function AppointmentsPage() {
                       </div>
                     )}
 
+                    {appointment.doctorName && (
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">Doctor</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          {appointment.doctorName} - {appointment.doctorEmail}
+                        </p>
+                      </div>
+                    )}
+
                     <div>
                       <h4 className="font-medium text-gray-900 dark:text-white mb-2">Patient Information</h4>
                       <div className="flex space-x-6 text-sm">
@@ -507,17 +509,15 @@ export default function AppointmentsPage() {
 
                     {appointment.status === "approved" && (
                       <div className="flex space-x-2 pt-4 border-t">
-                        <Button size="sm">
+                        <Button size="sm" asChild>
+                          <a href={appointment.meetingLink || `https://medibot-meet.com/room/${appointment._id}`} target="_blank">
                           <Video className="h-4 w-4 mr-1" />
                           Join Video Call
+                          </a>
                         </Button>
                         <Button size="sm" variant="outline">
                           <MessageSquare className="h-4 w-4 mr-1" />
                           Message Doctor
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Phone className="h-4 w-4 mr-1" />
-                          Call Doctor
                         </Button>
                       </div>
                     )}
@@ -532,9 +532,19 @@ export default function AppointmentsPage() {
                     {appointment.status === "rejected" && (
                       <div className="flex items-center space-x-2 pt-4 border-t">
                         <XCircle className="h-4 w-4 text-red-500" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                          Appointment was not approved. Please book a new one or contact support.
-                        </span>
+                        <div className="flex-1">
+                          <span className="text-sm text-gray-600 dark:text-gray-300">
+                            Appointment was not approved. Please book a new one.
+                          </span>
+                          {appointment.doctorNotes && (
+                            <p className="text-xs text-red-600 mt-1">
+                              Doctor's note: {appointment.doctorNotes}
+                            </p>
+                          )}
+                        </div>
+                        <Button size="sm" onClick={() => setIsDoctorListOpen(true)}>
+                          Book Another Doctor
+                        </Button>
                       </div>
                     )}
 

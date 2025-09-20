@@ -19,88 +19,68 @@ import {
 import { DoctorLayout } from "@/components/doctor-layout"
 import { useToast } from "@/hooks/use-toast"
 import { AppointmentList } from "./components/appointment-list"
+import { useQuery, useMutation } from "convex/react"
+import { api } from "@/convex/_generated/api"
+import { useUser } from "@clerk/nextjs"
 
 export default function DoctorDashboard() {
-  const [appointments, setAppointments] = useState([
-    {
-      id: 1,
-      patientName: "Ronak W",
-      patientEmail: "patient@example.com",
-      symptoms: "Persistent headache and fatigue for 3 days. Pain level 6/10, affecting daily activities.",
-      severity: "medium",
-      requestedTime: "2024-01-22 14:00:00",
-      status: "pending",
-      aiAnalysis:
-        "Patient reports moderate headache with fatigue. Symptoms suggest possible tension headache or mild migraine. Recommend consultation for proper diagnosis.",
-      vitalSigns: { heartRate: 75, spO2: 98, temperature: 98.4 },
-    },
-    {
-      id: 2,
-      patientName: "Ronak W",
-      patientEmail: "patient@example.com",
-      symptoms: "Chest pain and shortness of breath during exercise. Started yesterday evening.",
-      severity: "high",
-      requestedTime: "2024-01-22 10:30:00",
-      status: "approved",
-      aiAnalysis:
-        "HIGH PRIORITY: Chest pain with dyspnea requires immediate evaluation. Possible cardiac or pulmonary etiology. Urgent consultation recommended.",
-      vitalSigns: { heartRate: 95, spO2: 94, temperature: 99.1 },
-    },
-    {
-      id: 3,
-      patientName: "Ronak W",
-      patientEmail: "patient@example.com",
-      symptoms: "My 5-year-old has fever (101°F) and persistent cough for 2 days. Not eating well.",
-      severity: "medium",
-      requestedTime: "2024-01-23 16:00:00",
-      status: "pending",
-      aiAnalysis:
-        "Pediatric case: Fever with cough in young child. Possible viral or bacterial infection. Requires pediatric evaluation for proper treatment.",
-      vitalSigns: { heartRate: 110, spO2: 97, temperature: 101.0 },
-    },
-  ])
+  const { user } = useUser()
+  const doctor = useQuery(api.doctors.getDoctorByClerkId, 
+    user ? { clerkId: user.id } : "skip"
+  )
+  const appointments = useQuery(api.appointments.getDoctorAppointments, 
+    doctor ? { doctorId: doctor._id } : "skip"
+  ) || []
+  const updateAppointmentMutation = useMutation(api.appointments.updateAppointment)
 
   const { toast } = useToast()
 
-  const handleAppointmentAction = (appointmentId: number, action: "approve" | "reject") => {
-    const appointment = appointments.find(apt => apt.id === appointmentId)
+  const handleAppointmentAction = async (appointmentId: string, action: "approve" | "reject") => {
+    const appointment = appointments.find(apt => apt._id === appointmentId)
     if (!appointment) return
 
-    // Update local state
-    setAppointments((prev) =>
-      prev.map((apt) =>
-        apt.id === appointmentId ? { ...apt, status: action === "approve" ? "approved" : "rejected" } : apt,
-      ),
-    )
-
-    // Send API request to update appointment and trigger email
-    fetch(`/api/appointments/${appointmentId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    try {
+      // Update appointment status in Convex
+      await updateAppointmentMutation({
+        id: appointmentId as any,
         status: action === "approve" ? "approved" : "rejected",
         doctorNotes: action === "reject" ? "Doctor is not available at the requested time" : "Appointment confirmed",
-        meetingLink: action === "approve" ? `https://medibot-meet.com/room/${appointmentId}` : null
-      }),
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        console.log("Appointment updated and email sent successfully")
-      } else {
-        console.error("Failed to update appointment:", data.error)
-      }
-    })
-    .catch(error => {
-      console.error("Error updating appointment:", error)
-    })
+        meetingLink: action === "approve" ? `https://medibot-meet.com/room/${appointmentId}` : undefined,
+      })
 
-    toast({
-      title: action === "approve" ? "Appointment Approved" : "Appointment Rejected",
-      description: `Patient notified via email in real-time! ${action === "approve" ? "Confirmation" : "Rejection"} email sent instantly.`,
-    })
+      // Send email notification to patient
+      const emailResponse = await fetch("/api/notifications/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: action === "approve" ? "appointmentConfirmation" : "appointmentRejection",
+          appointment: {
+            ...appointment,
+            status: action === "approve" ? "approved" : "rejected",
+            doctorNotes: action === "reject" ? "Doctor is not available at the requested time" : "Appointment confirmed",
+            meetingLink: action === "approve" ? `https://medibot-meet.com/room/${appointmentId}` : undefined,
+          },
+        }),
+      })
+
+      if (emailResponse.ok) {
+        console.log("Email notification sent to patient successfully")
+      }
+
+      toast({
+        title: action === "approve" ? "Appointment Approved" : "Appointment Rejected",
+        description: `Patient notified via email in real-time! ${action === "approve" ? "Confirmation" : "Rejection"} email sent instantly.`,
+      })
+    } catch (error) {
+      console.error("Error updating appointment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update appointment. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const getSeverityColor = (severity: string) => {
@@ -130,10 +110,10 @@ export default function DoctorDashboard() {
   }
 
   const stats = {
-    totalAppointments: appointments.length,
-    pendingApprovals: appointments.filter((apt) => apt.status === "pending").length,
-    todayScheduled: appointments.filter((apt) => apt.status === "approved").length,
-    highPriority: appointments.filter((apt) => apt.severity === "high").length,
+    totalAppointments: appointments?.length || 0,
+    pendingApprovals: appointments?.filter((apt) => apt.status === "pending").length || 0,
+    todayScheduled: appointments?.filter((apt) => apt.status === "approved").length || 0,
+    highPriority: 0, // Will be calculated from symptoms analysis
   }
 
   return (
@@ -147,7 +127,7 @@ export default function DoctorDashboard() {
           </div>
           <div className="flex items-center space-x-2">
             <Stethoscope className="h-6 w-6 text-green-600" />
-            <span className="text-sm font-medium">Dr. Sarah Johnson</span>
+            <span className="text-sm font-medium">{doctor?.name || "Doctor"}</span>
           </div>
         </div>
 
@@ -203,10 +183,99 @@ export default function DoctorDashboard() {
         </div>
 
         {/* Appointments List */}
-        <AppointmentList 
-          appointments={appointments} 
-          onStatusChange={handleAppointmentAction} 
-        />
+        <div className="space-y-4">
+          {appointments.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Appointments Yet</h3>
+                <p className="text-gray-600 dark:text-gray-300">
+                  You don't have any appointment requests yet. Patients will be able to book appointments with you.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {appointments.map((appointment) => (
+                <Card key={appointment._id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-lg">{appointment.patientName}</CardTitle>
+                        <CardDescription>{appointment.patientEmail}</CardDescription>
+                      </div>
+                      <Badge variant={appointment.status === "pending" ? "secondary" : 
+                                   appointment.status === "approved" ? "default" : "destructive"}>
+                        {appointment.status}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="font-medium mb-1">Appointment Details</h4>
+                        <p className="text-sm text-gray-600">
+                          {new Date(appointment.appointmentDate).toLocaleDateString()} at {appointment.appointmentTime}
+                        </p>
+                      </div>
+                      <div>
+                        <h4 className="font-medium mb-1">Reason</h4>
+                        <p className="text-sm text-gray-600">{appointment.reason}</p>
+                      </div>
+                      {appointment.symptoms && (
+                        <div>
+                          <h4 className="font-medium mb-1">Symptoms</h4>
+                          <p className="text-sm text-gray-600">{appointment.symptoms}</p>
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-medium mb-1">Consultation Fee</h4>
+                        <p className="text-sm text-green-600 font-semibold">${appointment.consultationFee}</p>
+                      </div>
+                      
+                      {appointment.status === "pending" && (
+                        <div className="flex space-x-2 pt-3 border-t">
+                          <Button 
+                            size="sm" 
+                            className="flex-1" 
+                            onClick={() => handleAppointmentAction(appointment._id, "approve")}
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Approve
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="destructive" 
+                            className="flex-1" 
+                            onClick={() => handleAppointmentAction(appointment._id, "reject")}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+
+                      {appointment.status === "approved" && (
+                        <div className="flex space-x-2 pt-3 border-t">
+                          <Button size="sm" variant="outline" className="flex-1" asChild>
+                            <a href={appointment.meetingLink || `https://medibot-meet.com/room/${appointment._id}`} target="_blank">
+                              <Video className="mr-2 h-4 w-4" />
+                              Start Call
+                            </a>
+                          </Button>
+                          <Button size="sm" variant="outline" className="flex-1">
+                            <MessageSquare className="mr-2 h-4 w-4" />
+                            Chat
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </DoctorLayout>
   )

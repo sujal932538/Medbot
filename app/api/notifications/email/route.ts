@@ -152,7 +152,77 @@ const emailTemplates = {
             </p>
           </div>
         </div>
-      </div>
+      </body>
+      </html>
+    `
+  }),
+
+  appointmentRejection: (appointment: any) => ({
+    subject: `Appointment Request Update - ${appointment.doctorName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+          .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
+          .appointment-details { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
+          .button { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📅 Appointment Request Update</h1>
+          </div>
+          <div class="content">
+            <h2>Hello ${appointment.patientName},</h2>
+            <p>We regret to inform you that your appointment request with ${appointment.doctorName} could not be approved at this time.</p>
+            
+            <div class="appointment-details">
+              <h3>📋 Original Request Details</h3>
+              <p><strong>Doctor:</strong> ${appointment.doctorName}</p>
+              <p><strong>Requested Date:</strong> ${new Date(appointment.appointmentDate).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}</p>
+              <p><strong>Requested Time:</strong> ${appointment.appointmentTime}</p>
+              <p><strong>Reason:</strong> ${appointment.reason}</p>
+            </div>
+
+            ${appointment.doctorNotes ? `
+            <div class="appointment-details">
+              <h3>💬 Doctor's Note</h3>
+              <p>${appointment.doctorNotes}</p>
+            </div>
+            ` : ''}
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://medibot.com/patient/appointments" class="button">
+                📅 Book Another Doctor
+              </a>
+            </div>
+
+            <p><strong>What's Next?</strong></p>
+            <ul>
+              <li>You can book an appointment with another available doctor</li>
+              <li>Try selecting a different date or time that might work better</li>
+              <li>Contact our support team if you need assistance finding the right doctor</li>
+              <li>For urgent medical needs, please seek immediate medical attention</li>
+            </ul>
+            
+            <hr style="margin: 20px 0;">
+            <p style="font-size: 12px; color: #666;">
+              This is an automated message from MEDIBOT. 
+              <br>For support, contact us at support@medibot.com
+            </p>
+          </div>
+        </div>
+      </body>
       </html>
     `
   })
@@ -219,6 +289,16 @@ export async function POST(request: NextRequest) {
           from: "noreply@medibot.com",
           subject: confirmTemplate.subject,
           html: confirmTemplate.html
+        }
+        break
+
+      case "appointmentRejection":
+        const rejectionTemplate = emailTemplates.appointmentRejection(appointment)
+        emailData = {
+          to: appointment.patientEmail,
+          from: "noreply@medibot.com",
+          subject: rejectionTemplate.subject,
+          html: rejectionTemplate.html
         }
         break
 

@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createAppointment } from "@/lib/database"
+import { ConvexHttpClient } from "convex/browser"
+import { api } from "@/convex/_generated/api"
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
 
 // Helper function to validate appointment data
 function validateAppointmentData(data: any) {
@@ -55,25 +58,24 @@ export async function POST(request: NextRequest) {
 
     // Create appointment data
     const appointmentData = {
-      patient_id: body.patientId || "patient_ronakw",
-      patient_name: body.patientName.trim(),
-      patient_email: body.patientEmail.trim().toLowerCase(),
-      patient_phone: body.patientPhone?.trim() || "",
-      doctor_id: body.doctorId,
-      doctor_name: body.doctorName,
-      doctor_email: body.doctorEmail,
-      appointment_date: body.appointmentDate,
-      appointment_time: body.appointmentTime,
+      patientId: body.patientId || "patient_ronakw",
+      patientName: body.patientName.trim(),
+      patientEmail: body.patientEmail.trim().toLowerCase(),
+      patientPhone: body.patientPhone?.trim() || "",
+      doctorId: body.doctorId,
+      doctorName: body.doctorName,
+      doctorEmail: body.doctorEmail,
+      appointmentDate: body.appointmentDate,
+      appointmentTime: body.appointmentTime,
       reason: body.reason.trim(),
       symptoms: body.symptoms?.trim() || "",
-      status: "pending" as const,
-      consultation_fee: body.consultationFee || 0,
+      consultationFee: body.consultationFee || 0,
     }
 
     // Save to database
-    const newAppointment = await createAppointment(appointmentData)
+    const appointmentId = await convex.mutation(api.appointments.createAppointment, appointmentData)
 
-    console.log("Appointment created successfully:", newAppointment.id)
+    console.log("Appointment created successfully:", appointmentId)
 
     // Send email notification to doctor
     try {
@@ -85,7 +87,8 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify({
           type: "appointmentRequest",
-          appointment: newAppointment,
+            ...appointmentData,
+            id: appointmentId,
         }),
       })
 
@@ -104,7 +107,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         message: "Appointment booked successfully! Doctor notified via email in real-time.",
-        appointment: newAppointment,
+        appointmentId,
       },
       { status: 201 },
     )

@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getDoctorById } from "@/lib/database"
+import { ConvexHttpClient } from "convex/browser"
+import { api } from "@/convex/_generated/api"
 
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
 
 // GET - Fetch specific doctor by ID
 export async function GET(
@@ -9,8 +11,14 @@ export async function GET(
 ) {
   try {
     const doctorId = params.id
-    const doctor = await getDoctorById(doctorId)
+    const doctor = await convex.query(api.doctors.getDoctorById, { id: doctorId as any })
 
+    if (!doctor) {
+      return NextResponse.json(
+        { error: "Doctor not found" },
+        { status: 404 }
+      )
+    }
     return NextResponse.json({
       success: true,
       doctor
@@ -18,8 +26,8 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching doctor:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch doctor details" },
-      { status: error instanceof Error && error.message === "Doctor not found" ? 404 : 500 }
+      { error: "Failed to fetch doctor details" },
+      { status: 500 }
     )
   }
 }

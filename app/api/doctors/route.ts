@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getDoctors } from "@/lib/database"
+import { ConvexHttpClient } from "convex/browser"
+import { api } from "@/convex/_generated/api"
 
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!)
 
 // GET - Fetch all doctors or filter by specialty
 export async function GET(request: NextRequest) {
@@ -9,7 +11,10 @@ export async function GET(request: NextRequest) {
     const specialty = searchParams.get("specialty")
     const search = searchParams.get("search")
 
-    const doctors = await getDoctors(specialty || undefined, search || undefined)
+    const doctors = await convex.query(api.doctors.getAllDoctors, {
+      specialty: specialty || undefined,
+      search: search || undefined,
+    })
 
     return NextResponse.json({
       success: true,

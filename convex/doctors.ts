@@ -3,7 +3,7 @@ import { mutation, query } from "./_generated/server";
 
 export const createDoctor = mutation({
   args: {
-    clerkId: v.string(),
+    clerkId: v.optional(v.string()),
     name: v.string(),
     specialty: v.string(),
     email: v.string(),
@@ -12,19 +12,24 @@ export const createDoctor = mutation({
     experience: v.optional(v.string()),
     education: v.optional(v.string()),
     about: v.optional(v.string()),
-    languages: v.array(v.string()),
-    availability: v.array(v.string()),
-    consultationFee: v.number(),
+    languages: v.optional(v.array(v.string())),
+    availability: v.optional(v.array(v.string())),
+    consultationFee: v.optional(v.number()),
     rating: v.optional(v.number()),
     totalReviews: v.optional(v.number()),
     image: v.optional(v.string()),
-    status: v.union(v.literal("active"), v.literal("inactive")),
+    status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("doctors", {
       ...args,
+      languages: args.languages || ["English"],
+      availability: args.availability || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      consultationFee: args.consultationFee || 150,
       rating: args.rating || 4.5,
       totalReviews: args.totalReviews || 0,
+      image: args.image || "/placeholder-user.jpg",
+      status: args.status || "active",
     });
   },
 });
@@ -72,12 +77,23 @@ export const getDoctorByClerkId = query({
   },
 });
 
+export const getDoctorByEmail = query({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("doctors")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+  },
+});
+
 export const updateDoctor = mutation({
   args: {
     id: v.id("doctors"),
     name: v.optional(v.string()),
     specialty: v.optional(v.string()),
     phone: v.optional(v.string()),
+    licenseNumber: v.optional(v.string()),
     experience: v.optional(v.string()),
     education: v.optional(v.string()),
     about: v.optional(v.string()),
@@ -94,5 +110,26 @@ export const deleteDoctor = mutation({
   args: { id: v.id("doctors") },
   handler: async (ctx, args) => {
     return await ctx.db.delete(args.id);
+  },
+});
+
+export const getDoctorStats = query({
+  handler: async (ctx) => {
+    const doctors = await ctx.db.query("doctors").collect();
+    
+    const stats = doctors.reduce(
+      (acc, doctor) => {
+        acc.total++;
+        acc[doctor.status]++;
+        return acc;
+      },
+      {
+        total: 0,
+        active: 0,
+        inactive: 0,
+      } as Record<string, number>
+    );
+
+    return stats;
   },
 });
