@@ -20,6 +20,7 @@ import {
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useClerk, useUser } from "@clerk/nextjs"
 
 const navigation = [
   { name: "Dashboard", href: "/doctor/dashboard", icon: LayoutDashboard },
@@ -37,14 +38,13 @@ interface DoctorLayoutProps {
 export function DoctorLayout({ children }: DoctorLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
-  const router = useRouter()
+  const { user } = useUser()
+  const { signOut } = useClerk()
   
   // Role verification will be handled by ProtectedRoute wrapper
 
   const handleLogout = () => {
-    localStorage.removeItem("userType")
-    localStorage.removeItem("userEmail")
-    router.push("/login")
+    signOut()
   }
 
   return (
@@ -111,11 +111,15 @@ export function DoctorLayout({ children }: DoctorLayoutProps) {
           <div className="flex-shrink-0 p-4">
             <div className="flex items-center space-x-3">
               <Avatar>
-                <AvatarFallback>DS</AvatarFallback>
+                <AvatarFallback>
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Dr. Sarah Johnson</p>
-                <p className="text-xs text-gray-500">General Medicine</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {user?.fullName || "Doctor"}
+                </p>
+                <p className="text-xs text-gray-500">Doctor</p>
               </div>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />

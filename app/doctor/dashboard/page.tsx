@@ -58,9 +58,10 @@ export default function DoctorDashboard() {
           type: action === "approve" ? "appointmentConfirmation" : "appointmentRejection",
           appointment: {
             ...appointment,
+            id: appointmentId,
             status: action === "approve" ? "approved" : "rejected",
             doctorNotes: action === "reject" ? "Doctor is not available at the requested time" : "Appointment confirmed",
-            meetingLink: action === "approve" ? `https://medibot-meet.com/room/${appointmentId}` : undefined,
+            meetingLink: action === "approve" ? `${process.env.NEXT_PUBLIC_APP_URL}/video-call/${appointmentId}` : undefined,
           },
         }),
       })
@@ -71,7 +72,7 @@ export default function DoctorDashboard() {
 
       toast({
         title: action === "approve" ? "Appointment Approved" : "Appointment Rejected",
-        description: `Patient notified via email in real-time! ${action === "approve" ? "Confirmation" : "Rejection"} email sent instantly.`,
+        description: `Patient notified via email! ${action === "approve" ? "Confirmation" : "Rejection"} email sent successfully.`,
       })
     } catch (error) {
       console.error("Error updating appointment:", error)

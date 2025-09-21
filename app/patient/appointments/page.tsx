@@ -76,41 +76,28 @@ export default function AppointmentsPage() {
 
       console.log("Booking appointment with data:", appointmentData)
 
-      const appointmentId = await createAppointmentMutation(appointmentData)
-      
-      if (appointmentId) {
-        // Send email notification to doctor
-        try {
-          const emailResponse = await fetch("/api/notifications/email", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              type: "appointmentRequest",
-              appointment: {
-                ...appointmentData,
-                id: appointmentId,
-              },
-            }),
-          })
+      // Use the API endpoint instead of direct mutation for email integration
+      const response = await fetch("/api/appointments/book", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(appointmentData),
+      })
 
-          if (emailResponse.ok) {
-            console.log("Email notification sent to doctor successfully")
-          }
-        } catch (emailError) {
-          console.error("Error sending email notification:", emailError)
-        }
+      const result = await response.json()
+      
+      if (response.ok && result.success) {
 
         toast({
           title: "Appointment Booked! 🎉",
-          description: `Your appointment with ${selectedDoctor.name} has been booked successfully! Doctor notified via email.`,
+          description: result.message,
         })
 
         setIsAppointmentFormOpen(false)
         setSelectedDoctor(null)
       } else {
-        throw new Error("Failed to book appointment")
+        throw new Error(result.error || "Failed to book appointment")
       }
     } catch (error) {
       console.error("Error booking appointment:", error)

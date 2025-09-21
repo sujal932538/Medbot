@@ -1,11 +1,11 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { useSession } from "next-auth/react"
+import { useUser } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 
 export default function GetStartedPage() {
-  const { data: session, status } = useSession()
+  const { user, isLoaded } = useUser()
   const router = useRouter()
   const [role, setRole] = useState<"patient" | "doctor" | "admin" | "">("")
   const [loading, setLoading] = useState(false)
@@ -14,29 +14,25 @@ export default function GetStartedPage() {
   // applyRole: set clerk role, create convex user, then redirect
   async function applyRole(chosenRole: "patient" | "doctor" | "admin" | "") {
     if (!chosenRole) throw new Error("No role selected")
+    if (!user) throw new Error("User not authenticated")
     setError(null)
 
-    // Set Clerk public metadata
-    const setRoleRes = await fetch("/api/set-role", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: chosenRole }),
+    // Update Clerk user metadata
+    await user.update({
+      publicMetadata: { role: chosenRole }
     })
-    const setRolePayload = await setRoleRes.json().catch(() => ({}))
-    console.log("set-role response", setRoleRes.status, setRolePayload)
-    if (!setRoleRes.ok) {
-      throw new Error(setRolePayload?.error || "Failed to set role")
-    }
 
-    // Create Convex profile
+    // Create Convex user profile
     const createRes = await fetch("/api/users/create", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: session?.user?.name || "",
-        email: session?.user?.email || "",
+        clerkId: user.id,
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.primaryEmailAddress?.emailAddress || "",
+        phone: user.primaryPhoneNumber?.phoneNumber || "",
         role: chosenRole,
       }),
     })
@@ -57,7 +53,7 @@ export default function GetStartedPage() {
     const run = async () => {
       try {
         const pending = typeof window !== "undefined" ? localStorage.getItem("pendingRole") : null
-        if (pending && status === 'authenticated') {
+        if (pending && isLoaded && user) {
           localStorage.removeItem("pendingRole")
           setLoading(true)
           await applyRole(pending as "patient" | "doctor" | "admin")
@@ -70,11 +66,11 @@ export default function GetStartedPage() {
       }
     }
     run()
-  }, [status])
+  }, [isLoaded, user])
 
   const handleCardClick = async (chosen: "patient" | "doctor" | "admin") => {
     setRole(chosen)
-    if (status === 'authenticated') {
+    if (isLoaded && user) {
       setLoading(true)
       try {
         await applyRole(chosen)

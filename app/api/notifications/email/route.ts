@@ -1,17 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server"
+import nodemailer from "nodemailer"
 
-// Mock email service - in production, use SendGrid, Nodemailer, etc.
-interface EmailData {
-  to: string
-  subject: string
-  html: string
-  from?: string
+// Create transporter for Gmail SMTP
+const createTransporter = () => {
+  return nodemailer.createTransporter({
+    host: process.env.EMAIL_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.EMAIL_PORT || "465"),
+    secure: true,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  })
 }
 
-// Mock email templates
+// Email templates
 const emailTemplates = {
   appointmentRequest: (appointment: any) => ({
-    subject: `New Appointment Request - ${appointment.patientName}`,
+    subject: `🏥 New Appointment Request - ${appointment.patientName}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -23,7 +29,8 @@ const emailTemplates = {
           .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
           .appointment-details { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
           .button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
-          .urgent { border-left: 4px solid #ff6b6b; padding-left: 15px; }
+          .approve-btn { background: #28a745; }
+          .reject-btn { background: #dc3545; }
         </style>
       </head>
       <body>
@@ -52,7 +59,6 @@ const emailTemplates = {
               })}</p>
               <p><strong>Time:</strong> ${appointment.appointmentTime}</p>
               <p><strong>Consultation Fee:</strong> $${appointment.consultationFee}</p>
-              ${appointment.doctorName ? `<p><strong>Requested Doctor:</strong> ${appointment.doctorName}</p>` : ''}
             </div>
 
             <div class="appointment-details">
@@ -62,21 +68,19 @@ const emailTemplates = {
             </div>
 
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://medibot.com/doctor/dashboard" class="button" style="background: #28a745;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/doctor/dashboard" class="button approve-btn">
                 ✅ Approve Appointment
               </a>
-              <a href="https://medibot.com/doctor/dashboard" class="button" style="background: #dc3545;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/doctor/dashboard" class="button reject-btn">
                 ❌ Reject Appointment
               </a>
             </div>
-
-            ${appointment.meetingLink ? `<p><strong>Meeting Link:</strong> <a href="${appointment.meetingLink}">${appointment.meetingLink}</a></p>` : ''}
             
             <p>Please log in to your doctor dashboard to manage this appointment request.</p>
             
             <hr style="margin: 20px 0;">
             <p style="font-size: 12px; color: #666;">
-              This is a real-time automated message from MEDIBOT. Email sent instantly upon booking.
+              This is an automated message from MEDIBOT. Please do not reply to this email.
               <br>For support, contact us at support@medibot.com
             </p>
           </div>
@@ -87,7 +91,7 @@ const emailTemplates = {
   }),
 
   appointmentConfirmation: (appointment: any) => ({
-    subject: `Appointment Confirmed - ${appointment.doctorName}`,
+    subject: `✅ Appointment Confirmed - ${appointment.doctorName}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -125,7 +129,7 @@ const emailTemplates = {
             </div>
 
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${appointment.meetingLink || `https://medibot-meet.com/room/${appointment.id}`}" class="button">
+              <a href="${appointment.meetingLink || `${process.env.NEXT_PUBLIC_APP_URL}/video-call/${appointment.id}`}" class="button">
                 🎥 Join Video Consultation
               </a>
             </div>
@@ -138,16 +142,9 @@ const emailTemplates = {
               <li>If you need to reschedule, please contact us at least 24 hours in advance</li>
             </ul>
             
-            <div class="appointment-details">
-              <h3>👨‍⚕️ Doctor Information</h3>
-              <p><strong>Name:</strong> ${appointment.doctorName}</p>
-              <p><strong>Email:</strong> ${appointment.doctorEmail}</p>
-              <p><strong>Specialty:</strong> ${appointment.doctorSpecialty || 'General Medicine'}</p>
-            </div>
-            
             <hr style="margin: 20px 0;">
             <p style="font-size: 12px; color: #666;">
-              This is a real-time automated message from MEDIBOT. Email sent instantly upon approval.
+              This is an automated message from MEDIBOT.
               <br>For support, contact us at support@medibot.com
             </p>
           </div>
@@ -156,99 +153,36 @@ const emailTemplates = {
       </html>
     `
   }),
-
-  appointmentRejection: (appointment: any) => ({
-    subject: `Appointment Request Update - ${appointment.doctorName}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-          .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
-          .appointment-details { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
-          .button { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 10px 5px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>📅 Appointment Request Update</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${appointment.patientName},</h2>
-            <p>We regret to inform you that your appointment request with ${appointment.doctorName} could not be approved at this time.</p>
-            
-            <div class="appointment-details">
-              <h3>📋 Original Request Details</h3>
-              <p><strong>Doctor:</strong> ${appointment.doctorName}</p>
-              <p><strong>Requested Date:</strong> ${new Date(appointment.appointmentDate).toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}</p>
-              <p><strong>Requested Time:</strong> ${appointment.appointmentTime}</p>
-              <p><strong>Reason:</strong> ${appointment.reason}</p>
-            </div>
-
-            ${appointment.doctorNotes ? `
-            <div class="appointment-details">
-              <h3>💬 Doctor's Note</h3>
-              <p>${appointment.doctorNotes}</p>
-            </div>
-            ` : ''}
-
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="https://medibot.com/patient/appointments" class="button">
-                📅 Book Another Doctor
-              </a>
-            </div>
-
-            <p><strong>What's Next?</strong></p>
-            <ul>
-              <li>You can book an appointment with another available doctor</li>
-              <li>Try selecting a different date or time that might work better</li>
-              <li>Contact our support team if you need assistance finding the right doctor</li>
-              <li>For urgent medical needs, please seek immediate medical attention</li>
-            </ul>
-            
-            <hr style="margin: 20px 0;">
-            <p style="font-size: 12px; color: #666;">
-              This is an automated message from MEDIBOT. 
-              <br>For support, contact us at support@medibot.com
-            </p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `
-  })
 }
 
-// Mock function to send email
-async function sendEmail(emailData: EmailData): Promise<{ success: boolean; messageId?: string; error?: string }> {
+// Send email using Nodemailer
+async function sendEmail(emailData: {
+  to: string
+  subject: string
+  html: string
+  from?: string
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    // Simulate real-time email sending with immediate response
-    console.log("📧 REAL-TIME EMAIL SENDING...")
-    console.log("📧 To:", emailData.to)
-    console.log("📧 Subject:", emailData.subject)
-    console.log("📧 From:", emailData.from)
+    const transporter = createTransporter()
+
+    const mailOptions = {
+      from: emailData.from || process.env.EMAIL_USER,
+      to: emailData.to,
+      subject: emailData.subject,
+      html: emailData.html,
+    }
+
+    const result = await transporter.sendMail(mailOptions)
     
-    // Immediate response to simulate real-time email
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    
-    console.log("✅ EMAIL SENT SUCCESSFULLY IN REAL-TIME!")
-    console.log("📧 Message ID:", messageId)
+    console.log("✅ Email sent successfully!")
+    console.log("📧 Message ID:", result.messageId)
     
     return {
       success: true,
-      messageId
+      messageId: result.messageId
     }
   } catch (error) {
-    console.error("Email sending error:", error)
+    console.error("❌ Email sending error:", error)
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown email error"
@@ -260,7 +194,7 @@ async function sendEmail(emailData: EmailData): Promise<{ success: boolean; mess
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { type, appointment, recipient } = body
+    const { type, appointment } = body
 
     if (!type || !appointment) {
       return NextResponse.json(
@@ -269,14 +203,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let emailData: EmailData
+    let emailData: {
+      to: string
+      subject: string
+      html: string
+      from?: string
+    }
 
     switch (type) {
       case "appointmentRequest":
         const requestTemplate = emailTemplates.appointmentRequest(appointment)
         emailData = {
           to: appointment.doctorEmail,
-          from: "noreply@medibot.com",
+          from: process.env.EMAIL_USER,
           subject: requestTemplate.subject,
           html: requestTemplate.html
         }
@@ -286,19 +225,9 @@ export async function POST(request: NextRequest) {
         const confirmTemplate = emailTemplates.appointmentConfirmation(appointment)
         emailData = {
           to: appointment.patientEmail,
-          from: "noreply@medibot.com",
+          from: process.env.EMAIL_USER,
           subject: confirmTemplate.subject,
           html: confirmTemplate.html
-        }
-        break
-
-      case "appointmentRejection":
-        const rejectionTemplate = emailTemplates.appointmentRejection(appointment)
-        emailData = {
-          to: appointment.patientEmail,
-          from: "noreply@medibot.com",
-          subject: rejectionTemplate.subject,
-          html: rejectionTemplate.html
         }
         break
 
@@ -313,15 +242,12 @@ export async function POST(request: NextRequest) {
     const result = await sendEmail(emailData)
 
     if (result.success) {
-      console.log("✅ Email API response: SUCCESS")
-      console.log("📧 Message ID:", result.messageId)
       return NextResponse.json({
         success: true,
-        message: "Email sent successfully in real-time!",
+        message: "Email sent successfully!",
         messageId: result.messageId
       })
     } else {
-      console.error("❌ Email API response: FAILED")
       return NextResponse.json(
         { error: result.error || "Failed to send email" },
         { status: 500 }
@@ -331,64 +257,6 @@ export async function POST(request: NextRequest) {
     console.error("Error in email API:", error)
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
-    )
-  }
-}
-
-// GET - Get email templates (for testing)
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const type = searchParams.get("type")
-
-    if (!type) {
-      return NextResponse.json({
-        success: true,
-        availableTypes: Object.keys(emailTemplates)
-      })
-    }
-
-    // Mock appointment data for template preview
-    const mockAppointment = {
-      id: "apt_001",
-      patientName: "John Doe",
-      patientEmail: "john.doe@example.com",
-      patientPhone: "+1 (555) 123-4567",
-      doctorName: "Dr. Sarah Johnson",
-      doctorEmail: "sarah.johnson@medibot.com",
-      appointmentDate: "2024-01-25",
-      appointmentTime: "14:00",
-      reason: "General consultation",
-      symptoms: "Persistent headache and fatigue",
-      consultationFee: 150,
-      meetingLink: "https://medibot-meet.com/room/apt_001"
-    }
-
-    if (type === "appointmentRequest") {
-      const template = emailTemplates.appointmentRequest(mockAppointment)
-      return NextResponse.json({
-        success: true,
-        template
-      })
-    }
-
-    if (type === "appointmentConfirmation") {
-      const template = emailTemplates.appointmentConfirmation(mockAppointment)
-      return NextResponse.json({
-        success: true,
-        template
-      })
-    }
-
-    return NextResponse.json(
-      { error: "Invalid template type" },
-      { status: 400 }
-    )
-  } catch (error) {
-    console.error("Error fetching email template:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch email template" },
       { status: 500 }
     )
   }

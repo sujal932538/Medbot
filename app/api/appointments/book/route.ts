@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Create appointment data
     const appointmentData = {
-      patientId: body.patientId || "patient_ronakw",
+      patientId: body.patientId,
       patientName: body.patientName.trim(),
       patientEmail: body.patientEmail.trim().toLowerCase(),
       patientPhone: body.patientPhone?.trim() || "",
@@ -72,14 +72,14 @@ export async function POST(request: NextRequest) {
       consultationFee: body.consultationFee || 0,
     }
 
-    // Save to database
+    // Save to Convex database
     const appointmentId = await convex.mutation(api.appointments.createAppointment, appointmentData)
 
     console.log("Appointment created successfully:", appointmentId)
 
     // Send email notification to doctor
     try {
-      console.log("Sending real-time email notification to doctor...")
+      console.log("Sending email notification to doctor...")
       const emailResponse = await fetch(`${request.nextUrl.origin}/api/notifications/email`, {
         method: "POST",
         headers: {
@@ -87,15 +87,17 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify({
           type: "appointmentRequest",
+          appointment: {
             ...appointmentData,
             id: appointmentId,
+          },
         }),
       })
 
       const emailResult = await emailResponse.json()
       
       if (emailResponse.ok && emailResult.success) {
-        console.log("✅ Real-time email sent successfully to doctor:", emailResult.messageId)
+        console.log("✅ Email sent successfully to doctor:", emailResult.messageId)
       } else {
         console.error("❌ Failed to send email notification:", emailResult.error)
       }
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message: "Appointment booked successfully! Doctor notified via email in real-time.",
+        message: "Appointment booked successfully! Doctor notified via email.",
         appointmentId,
       },
       { status: 201 },

@@ -1,29 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from "@clerk/nextjs/server";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(request: NextRequest) {
   try {
     console.log('POST /api/users/create invoked')
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
     console.log('create user body', body)
     const {
-      name,
+      clerkId,
+      firstName,
+      lastName,
       email,
+      phone,
       role
     } = body;
 
     // Validate required fields
-    if (!name || !email || !role) {
+    if (!email || !role) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -41,8 +43,11 @@ export async function POST(request: NextRequest) {
 
     // Create user profile in Convex
     const createdId = await convex.mutation(api.users.createUser, {
+      clerkId,
       email,
-      name,
+      firstName,
+      lastName,
+      phone,
       role,
       password: ''
     });

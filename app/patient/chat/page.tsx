@@ -181,9 +181,9 @@ export default function ChatPage() {
 
       // Create appointment data
       const appointmentData = {
-        patientId: session?.user?.id || "demo_patient",
-        patientName: session?.user?.name || "Demo Patient",
-        patientEmail: session?.user?.email || "demo@example.com",
+        patientId: user?.id || "",
+        patientName: user?.fullName || "Patient",
+        patientEmail: user?.primaryEmailAddress?.emailAddress || "",
         patientPhone: "+1 (555) 123-4567",
         appointmentDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0], // Tomorrow
         appointmentTime: "10:00", // Default time

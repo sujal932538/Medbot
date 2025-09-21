@@ -9,6 +9,7 @@ import { LayoutDashboard, Users, Pill, Calendar, BarChart3, Settings, LogOut, Me
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useClerk, useUser } from "@clerk/nextjs"
 
 const navigation = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -26,9 +27,14 @@ interface AdminLayoutProps {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const { user } = useUser()
+  const { signOut } = useClerk()
   
   // Role verification will be handled by ProtectedRoute wrapper
 
+  const handleLogout = () => {
+    signOut()
+  }
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Mobile sidebar */}
@@ -93,13 +99,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <div className="flex-shrink-0 p-4">
             <div className="flex items-center space-x-3">
               <Avatar>
-                <AvatarFallback>AD</AvatarFallback>
+                <AvatarFallback>
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Admin User</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {user?.fullName || "Admin"}
+                </p>
                 <p className="text-xs text-gray-500">Administrator</p>
               </div>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>

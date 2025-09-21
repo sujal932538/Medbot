@@ -1,5 +1,4 @@
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
 
 export const seedDoctors = mutation({
   args: {},
@@ -7,7 +6,7 @@ export const seedDoctors = mutation({
     // Check if doctors already exist
     const existingDoctors = await ctx.db.query("doctors").collect();
     if (existingDoctors.length > 0) {
-      return { message: "Doctors already seeded" };
+      return { message: "Doctors already seeded", count: existingDoctors.length };
     }
 
     const sampleDoctors = [
@@ -118,7 +117,7 @@ export const seedPharmacies = mutation({
     // Check if pharmacies already exist
     const existingPharmacies = await ctx.db.query("pharmacies").collect();
     if (existingPharmacies.length > 0) {
-      return { message: "Pharmacies already seeded" };
+      return { message: "Pharmacies already seeded", count: existingPharmacies.length };
     }
 
     const samplePharmacies = [

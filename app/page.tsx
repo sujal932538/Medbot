@@ -37,7 +37,7 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { ClientOnly } from "@/components/client-only"
 import { Loading } from "@/components/loading"
-import { useSession } from "next-auth/react"
+import { useUser } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 
 // Disable SSR for this component to prevent hydration issues
@@ -50,6 +50,7 @@ function HomePageComponent() {
   const [isBookingOpen, setIsBookingOpen] = useState(false)
   const [isBooking, setIsBooking] = useState(false)
   const { toast } = useToast()
+  const { user } = useUser()
 
   useEffect(() => {
     // Safe error handling for browser extensions
@@ -133,17 +134,17 @@ function HomePageComponent() {
       setIsBooking(true)
 
       const appointmentData = {
+        patientId: user?.id || "",
         patientName: formData.get("patientName") as string,
-        patientEmail: formData.get("patientEmail") as string,
+        patientEmail: user?.primaryEmailAddress?.emailAddress || "",
         patientPhone: formData.get("patientPhone") as string,
         appointmentDate: formData.get("appointmentDate") as string,
         appointmentTime: formData.get("appointmentTime") as string,
         reason: formData.get("reason") as string,
         symptoms: formData.get("symptoms") as string,
-        patientId: "patient_" + Date.now(),
       }
 
-      const response = await fetch("/api/appointments", {
+      const response = await fetch("/api/appointments/book", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -156,7 +157,7 @@ function HomePageComponent() {
       if (response.ok && data.success) {
         toast({
           title: "Appointment Booked! 🎉",
-          description: "Your appointment has been scheduled successfully. Doctor notified via email in real-time.",
+          description: data.message,
         })
         setIsBookingOpen(false)
       } else {
@@ -623,18 +624,18 @@ function HomePageComponent() {
 }
 
 export default function Page() {
-  const { data: session, status } = useSession()
+  const { user, isLoaded } = useUser()
   const router = useRouter()
   
   // If user is authenticated and has a role, redirect to their dashboard
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.role) {
-      const role = session.user.role as string
+    if (isLoaded && user && user.publicMetadata?.role) {
+      const role = user.publicMetadata.role as string
       if (role === 'admin') router.push('/admin/dashboard')
       else if (role === 'doctor') router.push('/doctor/dashboard')
       else if (role === 'patient') router.push('/patient/dashboard')
     }
-  }, [status, session, router])
+  }, [isLoaded, user, router])
   
   // Show the home page
   return <HomePage />
