@@ -18,7 +18,20 @@ export function Providers({
       signInUrl="/login"
       signUpUrl="/register"
       afterSignInUrl="/get-started"
-      afterSignUpUrl="/register/verify-email-address"
+      afterSignUpUrl="/get-started"
+      appearance={{
+        baseTheme: undefined,
+        variables: {
+          colorPrimary: "#3b82f6",
+          colorBackground: "#ffffff",
+          colorInputBackground: "#ffffff",
+          colorInputText: "#1f2937",
+        },
+        elements: {
+          formButtonPrimary: "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700",
+          card: "shadow-xl",
+        }
+      }}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>

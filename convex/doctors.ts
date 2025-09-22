@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+// Create doctor with real data (no mock data)
 export const createDoctor = mutation({
   args: {
     clerkId: v.optional(v.string()),
@@ -15,8 +16,6 @@ export const createDoctor = mutation({
     languages: v.optional(v.array(v.string())),
     availability: v.optional(v.array(v.string())),
     consultationFee: v.optional(v.number()),
-    rating: v.optional(v.number()),
-    totalReviews: v.optional(v.number()),
     image: v.optional(v.string()),
     status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
   },
@@ -26,8 +25,8 @@ export const createDoctor = mutation({
       languages: args.languages || ["English"],
       availability: args.availability || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
       consultationFee: args.consultationFee || 150,
-      rating: args.rating || 4.5,
-      totalReviews: args.totalReviews || 0,
+      rating: 4.5, // Default rating for new doctors
+      totalReviews: 0, // Start with 0 reviews
       image: args.image || "/placeholder-user.jpg",
       status: args.status || "active",
     });

@@ -29,7 +29,10 @@ export default function AppointmentsPage() {
   const appointments = useQuery(api.appointments.getPatientAppointments, 
     user ? { patientId: user.id } : "skip"
   ) || []
-  const doctors = useQuery(api.doctors.getAllDoctors, {}) || []
+  const doctors = useQuery(api.doctors.getAllDoctors, { 
+    specialty: undefined, 
+    search: undefined 
+  }) || []
   const createAppointmentMutation = useMutation(api.appointments.createAppointment)
 
   const [selectedDoctor, setSelectedDoctor] = useState<any>(null)
@@ -88,22 +91,24 @@ export default function AppointmentsPage() {
       const result = await response.json()
       
       if (response.ok && result.success) {
+        console.log("✅ Appointment booked successfully:", result.appointmentId)
 
         toast({
           title: "Appointment Booked! 🎉",
-          description: result.message,
+          description: "Your appointment request has been sent to the doctor. You'll receive an email confirmation once approved.",
         })
 
         setIsAppointmentFormOpen(false)
         setSelectedDoctor(null)
       } else {
+        console.error("❌ Appointment booking failed:", result.error)
         throw new Error(result.error || "Failed to book appointment")
       }
     } catch (error) {
       console.error("Error booking appointment:", error)
       toast({
         title: "Booking Error",
-        description: "Failed to book appointment. Please try again.",
+        description: "Failed to book appointment. Please check your internet connection and try again.",
         variant: "destructive",
       })
     } finally {

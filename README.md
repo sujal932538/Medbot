@@ -30,7 +30,7 @@ A comprehensive healthcare platform that combines AI-powered symptom analysis wi
 - npm or pnpm
 - Clerk account
 - Convex account
-- Vonage account (for video calls)
+- Gmail account (for email notifications)
 
 ### Installation
 
@@ -41,10 +41,10 @@ A comprehensive healthcare platform that combines AI-powered symptom analysis wi
    ```
 
 3. Set up environment variables:
-   - Copy `.env.local` and fill in your API keys
+   - Copy `.env.local.example` to `.env.local` and fill in your API keys
    - Get Clerk keys from https://clerk.com
    - Get Convex URL from https://convex.dev
-   - Get Vonage keys from https://vonage.com
+   - Set up Gmail app password for email notifications
 
 4. Set up Convex:
    ```bash
@@ -56,11 +56,23 @@ A comprehensive healthcare platform that combines AI-powered symptom analysis wi
    npm run dev
    ```
 
+### Email Configuration
+
+For email notifications to work:
+
+1. Enable 2-factor authentication on your Gmail account
+2. Generate an app password: https://support.google.com/accounts/answer/185833
+3. Add your Gmail credentials to `.env.local`:
+   ```
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASS=your_16_character_app_password
+   ```
+
 ### Database Schema
 
 The Convex database includes:
 
-- **users**: Patient and admin accounts (Clerk integration)
+- **users**: Patient and admin accounts (integrated with Clerk)
 - **doctors**: Medical professional profiles
 - **pharmacies**: Partner pharmacy locations
 - **appointments**: Appointment bookings and management

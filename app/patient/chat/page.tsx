@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Bot, User, Send, Calendar, AlertTriangle, Heart, Sparkles } from "lucide-react"
 import { PatientLayout } from "@/components/patient-layout"
 import { useToast } from "@/hooks/use-toast"
-import { useSession } from "next-auth/react"
+import { useUser } from "@clerk/nextjs"
 import { useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
 
@@ -31,7 +31,7 @@ export default function ChatPage() {
       minute: '2-digit',
       hour12: true,
     }).format(date)
-  const { data: session } = useSession()
+  const { user } = useUser()
   const createAppointment = useMutation(api.appointments.createAppointment)
 
   const [messages, setMessages] = useState<Message[]>([
@@ -200,13 +200,13 @@ export default function ChatPage() {
         
         toast({
           title: "Appointment Request Sent! 🎉",
-          description: "Your appointment request has been sent to our medical team.",
+          description: "Your appointment request has been sent to our medical team. You'll receive an email confirmation once a doctor approves it.",
         })
 
         const confirmationMessage: Message = {
           id: Date.now().toString(),
           content:
-            "Perfect! 🎉 I've sent your appointment request to our medical team. Here's what happens next:\n\n✅ A qualified doctor will review your request\n📧 You'll receive confirmation once approved\n📞 The doctor will contact you for the consultation\n💬 You can communicate via message, phone, or video call\n\nIf your symptoms worsen or you feel it's urgent, don't hesitate to seek immediate medical attention! 🏥",
+            "Perfect! 🎉 I've sent your appointment request to our medical team. Here's what happens next:\n\n✅ A qualified doctor will review your request\n📧 You'll receive email confirmation once approved\n📞 The doctor will contact you for the consultation\n💬 You can communicate via message, phone, or video call\n\nYou can also check your appointment status in the 'My Appointments' section. If your symptoms worsen or you feel it's urgent, don't hesitate to seek immediate medical attention! 🏥",
           sender: "bot",
           timestamp: new Date(),
         }
@@ -220,14 +220,14 @@ export default function ChatPage() {
 
       toast({
         title: "Booking Error",
-        description: "Failed to book appointment. Please try again or contact support.",
+        description: "Failed to book appointment. Please try the 'Book Appointment' page or contact support.",
         variant: "destructive",
       })
 
       const errorMessage: Message = {
         id: Date.now().toString(),
         content:
-          "I'm sorry, there was an issue booking your appointment. 😔 Please try again, or you can contact our support team directly. If this is urgent, please don't hesitate to call your healthcare provider!",
+          "I'm sorry, there was an issue booking your appointment. 😔 Please try using the 'Book Appointment' page from the main menu, or you can contact our support team directly. If this is urgent, please don't hesitate to call your healthcare provider!",
         sender: "bot",
         timestamp: new Date(),
       }

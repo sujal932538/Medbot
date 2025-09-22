@@ -4,10 +4,12 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/login(.*)',
   '/register(.*)',
+  '/get-started',
   '/api/ping',
   '/api/test-gemini',
   '/api/esp32/vitals',
   '/api/webhooks/clerk',
+  '/api/notifications/email',
 ])
 
 const isAdminRoute = createRouteMatcher(['/admin(.*)'])
@@ -24,10 +26,10 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth()
   
   if (!userId) {
-    return auth().redirectToSignIn()
+    return Response.redirect(new URL('/login', req.url))
   }
 
-  const userRole = sessionClaims?.metadata?.role as string
+  const userRole = sessionClaims?.publicMetadata?.role as string
 
   // Role-based route protection
   if (isAdminRoute(req) && userRole !== 'admin') {

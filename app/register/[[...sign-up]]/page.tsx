@@ -9,16 +9,22 @@ export default function SignUpPage() {
             Join MEDIBOT
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
-            Create your account to get started
+            Create your account to access AI-powered healthcare
           </p>
         </div>
         <SignUp 
+          routing="path"
+          path="/register"
+          signInUrl="/login"
           appearance={{
             elements: {
               formButtonPrimary: "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700",
               card: "shadow-xl border-0",
               headerTitle: "hidden",
               headerSubtitle: "hidden",
+              socialButtonsBlockButton: "bg-white border border-gray-300 hover:bg-gray-50",
+              dividerLine: "bg-gray-200",
+              dividerText: "text-gray-500",
             }
           }}
         />

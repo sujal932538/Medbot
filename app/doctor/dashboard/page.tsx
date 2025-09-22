@@ -66,13 +66,18 @@ export default function DoctorDashboard() {
         }),
       })
 
-      if (emailResponse.ok) {
-        console.log("Email notification sent to patient successfully")
+      const emailResult = await emailResponse.json()
+      if (emailResponse.ok && emailResult.success) {
+        console.log("✅ Email notification sent to patient successfully:", emailResult.messageId)
+      } else {
+        console.error("❌ Failed to send email to patient:", emailResult.error)
       }
 
       toast({
         title: action === "approve" ? "Appointment Approved" : "Appointment Rejected",
-        description: `Patient notified via email! ${action === "approve" ? "Confirmation" : "Rejection"} email sent successfully.`,
+        description: emailResponse.ok 
+          ? `Patient notified via email! ${action === "approve" ? "Confirmation" : "Rejection"} email sent successfully.`
+          : `Appointment ${action}d but email notification failed. Please contact the patient directly.`,
       })
     } catch (error) {
       console.error("Error updating appointment:", error)

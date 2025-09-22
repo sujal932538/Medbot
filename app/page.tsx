@@ -637,6 +637,11 @@ export default function Page() {
     }
   }, [isLoaded, user, router])
   
+  // Show loading while checking authentication
+  if (!isLoaded) {
+    return <Loading />
+  }
+  
   // Show the home page
   return <HomePage />
 }
